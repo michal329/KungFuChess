@@ -306,6 +306,50 @@ def test_two_moves_arrive_in_order():
     assert str(board) == ". . . wR\n. . . ."
 
 
+# ---------- In-flight rules ----------
+
+def test_in_flight_piece_cannot_be_selected():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # schedule move to (0,2) -- wR now in flight
+    controller.handle_click(50, 50)   # try to select wR again -- in flight, ignored
+    controller.handle_click(150, 50)  # this would move wR to (0,1) if selected
+    controller.advance_clock(1001)
+    assert str(board) == ". . wR\n. . .\n. . ."  # arrived at original dst, not redirected
+
+def test_in_flight_piece_cannot_replace_selection():
+    board = Board.parse(["wR . . wR", ". . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(150, 50)   # schedule move to (0,1) -- wR at (0,0) in flight
+    controller.handle_click(50, 50)    # try re-select wR at (0,0) -- in flight, ignored
+    controller.handle_click(350, 50)   # no active selection, nothing happens
+    controller.advance_clock(1001)
+    assert str(board) == ". wR . wR\n. . . ."  # only original move, wR at (0,3) untouched
+
+def test_piece_can_move_again_immediately_after_arrival():
+    board = Board.parse(["wR . . .", ". . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(150, 50)   # schedule move to (0,1)
+    controller.advance_clock(1001)     # wR arrives at (0,1)
+    controller.handle_click(150, 50)   # select wR at (0,1) -- no cooldown, should work
+    controller.handle_click(350, 50)   # schedule move to (0,3)
+    controller.advance_clock(1001)
+    assert str(board) == ". . . wR\n. . . ."
+
+def test_stationary_friendly_piece_can_still_be_selected_while_other_is_in_flight():
+    board = Board.parse(["wR . wR", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(150, 50)   # schedule move to (0,1) -- wR at (0,0) in flight
+    controller.handle_click(250, 50)   # select wR at (0,2) -- stationary, should work
+    controller.handle_click(250, 150)  # schedule move to (1,2)
+    controller.advance_clock(1001)
+    assert board.get(1, 2) is not None  # wR at (0,2) moved to (1,2)
+
+
 # ---------- RuleSet injection ----------
 
 class AllowAllRuleSet(RuleSet):

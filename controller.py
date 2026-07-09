@@ -34,13 +34,14 @@ class Controller:
         piece = self._board.get(row, col)
 
         if self._selected is None:
-            if piece is not None:
+            if piece is not None and not self._is_in_flight(row, col):
                 self._selected = (row, col)
             return
 
         selected_piece = self._board.get(*self._selected)
         if piece is not None and piece.color == selected_piece.color:
-            self._selected = (row, col)
+            if not self._is_in_flight(row, col):
+                self._selected = (row, col)
             return
 
         if not self._rule_set.is_legal_move(selected_piece, self._selected, (row, col), self._board):
@@ -50,6 +51,9 @@ class Controller:
         arrive_at = self._clock_ms + MOVE_DURATION_MS
         self._pending.append((arrive_at, self._selected, (row, col)))
         self._selected = None
+
+    def _is_in_flight(self, row, col):
+        return any(src == (row, col) for _, src, _ in self._pending)
 
     def advance_clock(self, ms):
         self._clock_ms += ms
