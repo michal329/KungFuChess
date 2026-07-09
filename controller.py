@@ -37,7 +37,7 @@ class Controller:
             self._selected = (row, col)
             return
 
-        if not self._rule_set.is_legal_move(selected_piece, self._selected, (row, col)):
+        if not self._rule_set.is_legal_move(selected_piece, self._selected, (row, col), self._board):
             self._selected = None
             return
 

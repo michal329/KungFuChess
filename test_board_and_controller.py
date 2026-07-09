@@ -53,8 +53,8 @@ def make_board():
 def test_select_piece_by_center_click():
     board = make_board()
     controller = Controller(board)
-    controller.handle_click(50, 50)   # select wK at (0,0)
-    controller.handle_click(150, 150) # move wK diagonally to (1,1) -- legal for king
+    controller.handle_click(50, 50)
+    controller.handle_click(150, 150)
     controller.advance_clock(1000)
     assert str(board) == ". . .\n. wK .\n. . ."
 
@@ -78,87 +78,151 @@ def test_click_outside_board_is_ignored():
 def test_clicking_another_friendly_piece_replaces_selection():
     board = Board.parse(["wR . wR", ". . .", ". . ."])
     controller = Controller(board)
-    controller.handle_click(50, 50)   # select wR at (0,0)
-    controller.handle_click(250, 50)  # replace selection with wR at (0,2)
-    controller.handle_click(250, 150) # move wR straight down to (1,2) -- legal
+    controller.handle_click(50, 50)
+    controller.handle_click(250, 50)
+    controller.handle_click(250, 150)
     assert str(board) == "wR . .\n. . wR\n. . ."
 
 
-# ---------- Movement rules ----------
+# ---------- Movement rules (geometry only) ----------
 
 def make_piece(t):
     return Piece("w", t)
 
 
+def empty_board():
+    return Board.parse([". . . . . . . .", ". . . . . . . .",
+                        ". . . . . . . .", ". . . . . . . .",
+                        ". . . . . . . .", ". . . . . . . .",
+                        ". . . . . . . .", ". . . . . . . ."])
+
+
 # King
 def test_king_legal_one_step():
-    assert DEFAULT_RULE_SET.is_legal_move(make_piece("K"), (4, 4), (5, 5))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("K"), (4, 4), (5, 5), empty_board())
 
 def test_king_illegal_two_steps():
-    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("K"), (4, 4), (6, 4))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("K"), (4, 4), (6, 4), empty_board())
 
 
 # Rook
 def test_rook_legal_straight():
-    assert DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (0, 7))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (0, 7), empty_board())
 
 def test_rook_illegal_diagonal():
-    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (3, 3))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (3, 3), empty_board())
 
 
 # Bishop
 def test_bishop_legal_diagonal():
-    assert DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (0, 0), (4, 4))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (0, 0), (4, 4), empty_board())
 
 def test_bishop_illegal_straight():
-    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (0, 0), (0, 4))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (0, 0), (0, 4), empty_board())
 
 
 # Queen
 def test_queen_legal_straight():
-    assert DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (3, 7))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (3, 7), empty_board())
 
 def test_queen_legal_diagonal():
-    assert DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (6, 6))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (6, 6), empty_board())
 
 def test_queen_illegal_knight_shape():
-    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (5, 4))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (5, 4), empty_board())
 
 
 # Knight
 def test_knight_legal_l_shape():
-    assert DEFAULT_RULE_SET.is_legal_move(make_piece("N"), (4, 4), (2, 5))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("N"), (4, 4), (2, 5), empty_board())
 
 def test_knight_illegal_straight():
-    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("N"), (4, 4), (4, 6))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("N"), (4, 4), (4, 6), empty_board())
 
 
-# RuleSet injection -- custom ruleset that allows any move
+# ---------- Blocker tests ----------
+
+def test_rook_blocked_by_piece_in_path():
+    board = Board.parse(["wR wP . .", ". . . .", ". . . .", ". . . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (0, 3), board)
+
+def test_rook_not_blocked_when_path_clear():
+    board = Board.parse(["wR . . .", ". . . .", ". . . .", ". . . ."])
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (0, 3), board)
+
+def test_bishop_blocked_by_piece_in_path():
+    board = Board.parse([". . . .", ". wP . .", ". . . .", ". . . wB"])
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (3, 3), (0, 0), board)
+
+def test_bishop_not_blocked_when_path_clear():
+    board = Board.parse([". . . .", ". . . .", ". . . .", ". . . wB"])
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (3, 3), (0, 0), board)
+
+def test_queen_blocked_straight():
+    board = Board.parse(["wQ wP . .", ". . . .", ". . . .", ". . . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (0, 0), (0, 3), board)
+
+def test_queen_blocked_diagonal():
+    board = Board.parse([". . . .", ". wP . .", ". . . .", ". . . wQ"])
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (0, 0), board)
+
+def test_knight_jumps_over_blockers():
+    board = Board.parse(["wN wP wP .", "wP wP wP .", ". wP . .", ". . . ."])
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("N"), (0, 0), (2, 1), board)
+
+
+# ---------- Capture tests ----------
+
+def test_rook_can_capture_enemy():
+    board = Board.parse(["wR . bR .", ". . . .", ". . . .", ". . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # capture bR at (0,2)
+    assert str(board) == ". . wR .\n. . . .\n. . . .\n. . . ."
+
+def test_rook_cannot_capture_friendly():
+    board = Board.parse(["wR . wR .", ". . . .", ". . . .", ". . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # try to capture wR at (0,2) -- friendly, replaces selection
+    assert board.get(0, 0) is not None  # original wR still there
+
+def test_rook_blocked_by_friendly_cannot_reach_enemy_behind():
+    board = Board.parse(["wR wP bR .", ". . . .", ". . . .", ". . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # bR at (0,2) blocked by wP at (0,1)
+    assert str(board) == "wR wP bR .\n. . . .\n. . . .\n. . . ."
+
+
+# ---------- RuleSet injection ----------
+
 class AllowAllRuleSet(RuleSet):
-    def is_legal_move(self, piece, src, dst):
+    def is_legal_move(self, piece, src, dst, board):
         return True
 
 
 def test_custom_ruleset_injected_into_controller():
     board = Board.parse(["wK . .", ". . .", ". . ."])
     controller = Controller(board, rule_set=AllowAllRuleSet())
-    controller.handle_click(50, 50)   # select wK at (0,0)
-    controller.handle_click(250, 50)  # normally illegal for king, allowed by custom ruleset
+    controller.handle_click(50, 50)
+    controller.handle_click(250, 50)
     assert str(board) == ". . wK\n. . .\n. . ."
 
 
-# Integration: illegal move is ignored on the board
+# ---------- Integration ----------
+
 def test_illegal_move_not_executed():
     board = Board.parse(["wK . .", ". . .", ". . ."])
     controller = Controller(board)
-    controller.handle_click(50, 50)   # select wK at (0,0)
-    controller.handle_click(250, 50)  # illegal: king moving 2 cols
+    controller.handle_click(50, 50)
+    controller.handle_click(250, 50)
     assert str(board) == "wK . .\n. . .\n. . ."
 
 
 def test_legal_move_is_executed():
     board = Board.parse(["wR . .", ". . .", ". . ."])
     controller = Controller(board)
-    controller.handle_click(50, 50)   # select wR at (0,0)
-    controller.handle_click(250, 50)  # legal: rook moving straight to (0,2)
+    controller.handle_click(50, 50)
+    controller.handle_click(250, 50)
     assert str(board) == ". . wR\n. . .\n. . ."
