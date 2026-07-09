@@ -462,7 +462,64 @@ def test_pawn_no_promotion_when_not_on_last_row():
     assert piece is not None and piece.type == "P"
 
 
-# ---------- Game over ----------
+# ---------- Jump mechanic ----------
+
+def test_airborne_piece_captures_arriving_enemy():
+    board = Board.parse(["wR . bR", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_jump(0, 0)       # wR at (0,0) jumps, lands at t=1000
+    controller.handle_click(250, 50)   # select bR at (0,2)
+    controller.handle_click(50, 50)    # schedule bR to (0,0), arrives t=1000
+    controller.advance_clock(1000)
+    assert board.get(0, 0) is not None and board.get(0, 0).color == "w"  # wR stays
+    assert board.get(0, 2) is None  # bR removed
+
+def test_airborne_piece_stays_in_cell():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_jump(0, 0)
+    controller.advance_clock(1000)
+    assert board.get(0, 0) is not None and board.get(0, 0).color == "w"
+
+def test_in_flight_piece_cannot_jump():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR
+    controller.handle_click(250, 50)   # schedule move to (0,2)
+    controller.handle_jump(0, 0)       # try to jump wR -- ignored
+    controller.advance_clock(1000)
+    assert board.get(0, 2) is not None  # wR arrived at dst, not stuck
+    assert board.get(0, 0) is None
+
+def test_airborne_piece_cannot_be_selected():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_jump(0, 0)       # wR airborne
+    controller.handle_click(50, 50)    # try to select wR -- ignored
+    controller.handle_click(250, 50)   # no selection, nothing happens
+    controller.advance_clock(1000)
+    assert board.get(0, 0) is not None  # wR still at (0,0)
+    assert board.get(0, 2) is None
+
+def test_no_capture_if_no_enemy_arrives_during_jump():
+    board = Board.parse(["wR . bR", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_jump(0, 0)       # wR jumps
+    controller.advance_clock(1000)     # no enemy arrives
+    assert board.get(0, 0) is not None  # wR still there
+    assert board.get(0, 2) is not None  # bR untouched
+
+def test_enemy_arrives_after_jump_window_not_captured():
+    board = Board.parse(["wR . bR", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_jump(0, 0)       # wR jumps, window closes at t=1000
+    controller.advance_clock(1000)     # jump window closes
+    controller.handle_click(250, 50)   # select bR
+    controller.handle_click(50, 50)    # schedule bR to (0,0), arrives t=2000
+    controller.advance_clock(1000)
+    assert board.get(0, 0) is not None and board.get(0, 0).color == "b"  # bR captured wR normally
+
+
 
 def test_capturing_enemy_king_ends_game():
     board = Board.parse(["wR . bK", ". . .", ". . ."])

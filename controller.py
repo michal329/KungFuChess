@@ -25,11 +25,26 @@ class Controller:
         self._selected = None
         self._clock_ms = 0
         self._pending = []  # list of (arrive_at_ms, src, dst, color)
+        self._airborne = {}  # (row, col) -> land_at_ms
         self._game_over = False
 
     @property
     def is_game_over(self):
         return self._game_over
+
+    def handle_jump(self, row, col):
+        if self._game_over:
+            return
+        if not self._board.in_bounds(row, col):
+            return
+        piece = self._board.get(row, col)
+        if piece is None:
+            return
+        if self._is_in_flight(row, col):
+            return
+        if (row, col) in self._airborne:
+            return
+        self._airborne[(row, col)] = self._clock_ms + MOVE_DURATION_MS
 
     def handle_click(self, x, y):
         if self._game_over:
@@ -41,7 +56,7 @@ class Controller:
         piece = self._board.get(row, col)
 
         if self._selected is None:
-            if piece is not None and not self._is_in_flight(row, col):
+            if piece is not None and not self._is_in_flight(row, col) and (row, col) not in self._airborne:
                 self._selected = (row, col)
             return
 
@@ -79,6 +94,7 @@ class Controller:
         self._pending = [p for p in self._pending if p[0] > self._clock_ms]
         for arrive_at, src, dst, color in due:
             self._resolve_arrival(src, dst, color)
+        self._airborne = {cell: t for cell, t in self._airborne.items() if t > self._clock_ms}
 
     def _resolve_arrival(self, src, dst, scheduled_color):
         """Apply a pending move at arrival time, respecting the current board state."""
@@ -87,6 +103,10 @@ class Controller:
             return
         dst_piece = self._board.get(*dst)
         if dst_piece is not None and dst_piece.color == scheduled_color:
+            return
+        # airborne enemy at dst captures the arriving piece
+        if dst in self._airborne and dst_piece is not None and dst_piece.color != scheduled_color:
+            self._board.remove(src)
             return
         self._board.move(src, dst)
         if dst_piece is not None and dst_piece.type == "K":

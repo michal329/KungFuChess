@@ -97,6 +97,9 @@ class Board:
         self._grid[dst_row][dst_col] = self._grid[src_row][src_col]
         self._grid[src_row][src_col] = None
 
+    def remove(self, pos):
+        self._grid[pos[0]][pos[1]] = None
+
     def promote(self, row, col, new_type):
         piece = self._grid[row][col]
         if piece is not None:

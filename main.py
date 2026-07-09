@@ -27,6 +27,8 @@ def run_command(line, board, controller, output):
         output.append(str(board))
     elif name == "click":
         controller.handle_click(int(parts[1]), int(parts[2]))
+    elif name == "jump":
+        controller.handle_jump(int(parts[1]), int(parts[2]))
     elif name == "wait":
         controller.advance_clock(int(parts[1]))
 
