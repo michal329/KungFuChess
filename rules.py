@@ -39,29 +39,41 @@ def _is_path_clear(src, dst, board):
     return True
 
 
-def _king_legal(src, dst, board):
+def _king_legal(piece, src, dst, board):
     dr, dc = _delta(src, dst)
     return max(abs(dr), abs(dc)) == 1
 
 
-def _rook_legal(src, dst, board):
+def _rook_legal(piece, src, dst, board):
     dr, dc = _delta(src, dst)
     return (dr, dc) != (0, 0) and _is_straight(dr, dc) and _is_path_clear(src, dst, board)
 
 
-def _bishop_legal(src, dst, board):
+def _bishop_legal(piece, src, dst, board):
     dr, dc = _delta(src, dst)
     return (dr, dc) != (0, 0) and _is_diagonal(dr, dc) and _is_path_clear(src, dst, board)
 
 
-def _queen_legal(src, dst, board):
+def _queen_legal(piece, src, dst, board):
     dr, dc = _delta(src, dst)
     return (dr, dc) != (0, 0) and (_is_straight(dr, dc) or _is_diagonal(dr, dc)) and _is_path_clear(src, dst, board)
 
 
-def _knight_legal(src, dst, board):
+def _knight_legal(piece, src, dst, board):
     dr, dc = _delta(src, dst)
     return sorted([abs(dr), abs(dc)]) == [1, 2]
+
+
+def _pawn_legal(piece, src, dst, board):
+    dr, dc = _delta(src, dst)
+    forward = -1 if piece.color == "w" else 1
+    # forward step -- destination must be empty
+    if dc == 0 and dr == forward:
+        return board.get(dst[0], dst[1]) is None
+    # diagonal capture -- destination must have an enemy piece
+    if abs(dc) == 1 and dr == forward:
+        return board.get(dst[0], dst[1]) is not None
+    return False
 
 
 _RULES = {
@@ -70,6 +82,7 @@ _RULES = {
     "B": _bishop_legal,
     "Q": _queen_legal,
     "N": _knight_legal,
+    "P": _pawn_legal,
 }
 
 
@@ -80,7 +93,7 @@ class RuleSet:
         rule = _RULES.get(piece.type)
         if rule is None:
             return False
-        return rule(src, dst, board)
+        return rule(piece, src, dst, board)
 
 
 DEFAULT_RULE_SET = RuleSet()

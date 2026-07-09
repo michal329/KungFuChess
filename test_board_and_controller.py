@@ -195,6 +195,66 @@ def test_rook_blocked_by_friendly_cannot_reach_enemy_behind():
     assert str(board) == "wR wP bR .\n. . . .\n. . . .\n. . . ."
 
 
+# ---------- Pawn movement ----------
+
+def test_white_pawn_moves_up_one_step():
+    board = Board.parse([". . .", ". wP .", ". . ."])
+    assert DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (1, 1), (0, 1), board)
+
+def test_black_pawn_moves_down_one_step():
+    board = Board.parse([". . .", ". bP .", ". . ."])
+    assert DEFAULT_RULE_SET.is_legal_move(Piece("b", "P"), (1, 1), (2, 1), board)
+
+def test_white_pawn_cannot_move_down():
+    board = Board.parse([". . .", ". wP .", ". . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (1, 1), (2, 1), board)
+
+def test_black_pawn_cannot_move_up():
+    board = Board.parse([". . .", ". bP .", ". . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("b", "P"), (1, 1), (0, 1), board)
+
+def test_pawn_cannot_move_two_cells():
+    board = Board.parse([". . .", ". . .", ". wP ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (2, 1), (0, 1), board)
+
+def test_pawn_blocked_by_piece_ahead():
+    board = Board.parse([". bP .", ". wP .", ". . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (1, 1), (0, 1), board)
+
+def test_white_pawn_captures_diagonally():
+    board = Board.parse(["bP . .", ". wP .", ". . ."])
+    assert DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (1, 1), (0, 0), board)
+
+def test_black_pawn_captures_diagonally():
+    board = Board.parse([". . .", ". bP .", ". . wP"])
+    assert DEFAULT_RULE_SET.is_legal_move(Piece("b", "P"), (1, 1), (2, 2), board)
+
+def test_pawn_cannot_capture_forward():
+    board = Board.parse(["bP . .", "wP . .", ". . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (1, 0), (0, 0), board)
+
+def test_pawn_cannot_capture_empty_diagonal():
+    board = Board.parse([". . .", ". wP .", ". . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (1, 1), (0, 0), board)
+
+
+# ---------- Pawn integration ----------
+
+def test_white_pawn_moves_up_on_board():
+    board = Board.parse([". . .", ". wP .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(150, 150)  # select wP at (1,1)
+    controller.handle_click(150, 50)   # move to (0,1)
+    assert str(board) == ". wP .\n. . .\n. . ."
+
+def test_white_pawn_captures_enemy_diagonally_on_board():
+    board = Board.parse(["bP . .", ". wP .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(150, 150)  # select wP at (1,1)
+    controller.handle_click(50, 50)    # capture bP at (0,0)
+    assert str(board) == "wP . .\n. . .\n. . ."
+
+
 # ---------- RuleSet injection ----------
 
 class AllowAllRuleSet(RuleSet):
