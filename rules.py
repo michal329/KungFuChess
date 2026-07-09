@@ -1,9 +1,11 @@
 """
 Movement rules for each piece type.
 
-Design note: each rule function receives only (src, dst) as (row, col) tuples.
-No board reference needed -- legality is purely geometric for these pieces.
-To add a new piece type, add a function and register it in RULES.
+Design note: RuleSet is injected into Controller so the controller never
+imports this module directly. A custom ruleset (e.g. reversed pawn) is
+swapped in at construction time without touching Controller or Board.
+Each rule function is purely geometric -- (src, dst) tuples only.
+To add a new piece type, add a function and register it in _RULES.
 """
 
 
@@ -19,42 +21,48 @@ def _is_diagonal(dr, dc):
     return abs(dr) == abs(dc)
 
 
-def king_legal(src, dst):
+def _king_legal(src, dst):
     dr, dc = _delta(src, dst)
     return max(abs(dr), abs(dc)) == 1
 
 
-def rook_legal(src, dst):
+def _rook_legal(src, dst):
     dr, dc = _delta(src, dst)
     return (dr, dc) != (0, 0) and _is_straight(dr, dc)
 
 
-def bishop_legal(src, dst):
+def _bishop_legal(src, dst):
     dr, dc = _delta(src, dst)
     return (dr, dc) != (0, 0) and _is_diagonal(dr, dc)
 
 
-def queen_legal(src, dst):
+def _queen_legal(src, dst):
     dr, dc = _delta(src, dst)
     return (dr, dc) != (0, 0) and (_is_straight(dr, dc) or _is_diagonal(dr, dc))
 
 
-def knight_legal(src, dst):
+def _knight_legal(src, dst):
     dr, dc = _delta(src, dst)
     return sorted([abs(dr), abs(dc)]) == [1, 2]
 
 
-RULES = {
-    "K": king_legal,
-    "R": rook_legal,
-    "B": bishop_legal,
-    "Q": queen_legal,
-    "N": knight_legal,
+_RULES = {
+    "K": _king_legal,
+    "R": _rook_legal,
+    "B": _bishop_legal,
+    "Q": _queen_legal,
+    "N": _knight_legal,
 }
 
 
-def is_legal_move(piece, src, dst):
-    rule = RULES.get(piece.type)
-    if rule is None:
-        return False
-    return rule(src, dst)
+class RuleSet:
+    """Validates move geometry. Inject into Controller at construction time."""
+
+    def is_legal_move(self, piece, src, dst):
+        rule = _RULES.get(piece.type)
+        if rule is None:
+            return False
+        return rule(src, dst)
+
+
+DEFAULT_RULE_SET = RuleSet()

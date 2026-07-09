@@ -1,4 +1,4 @@
-# git repo: <PUT YOUR REPO URL HERE>
+# git repo: https://github.com/michal329/KungFuChess
 """
 Reads a board fixture + command script from stdin, executes it, writes
 output to stdout. No prompts/debug text -- VPL diffs exact output.

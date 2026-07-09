@@ -3,19 +3,19 @@ Input controller: converts pixel clicks into board actions.
 
 Design note (per course email re: user-defined games):
 This class only knows "select" / "replace selection" / "send move request".
-It does NOT know chess move legality -- that lives in rules.py so a custom
-ruleset (e.g. a pawn that reverses direction at the last row) can be
-swapped in without touching click-handling code.
+Chess legality is delegated to a RuleSet injected at construction time --
+swap in a different RuleSet (e.g. reversed pawn) without touching this file.
 """
 
-from rules import is_legal_move
+from rules import DEFAULT_RULE_SET
 
 CELL_SIZE = 100
 
 
 class Controller:
-    def __init__(self, board, cell_size=CELL_SIZE):
+    def __init__(self, board, rule_set=DEFAULT_RULE_SET, cell_size=CELL_SIZE):
         self._board = board
+        self._rule_set = rule_set
         self._cell_size = cell_size
         self._selected = None
         self._clock_ms = 0
@@ -37,7 +37,7 @@ class Controller:
             self._selected = (row, col)
             return
 
-        if not is_legal_move(selected_piece, self._selected, (row, col)):
+        if not self._rule_set.is_legal_move(selected_piece, self._selected, (row, col)):
             self._selected = None
             return
 

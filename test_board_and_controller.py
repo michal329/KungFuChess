@@ -2,7 +2,7 @@ import pytest
 
 from board import Board, RowWidthMismatchError, UnknownTokenError, Piece
 from controller import Controller
-from rules import is_legal_move
+from rules import RuleSet, DEFAULT_RULE_SET
 
 
 # ---------- Board.parse ----------
@@ -53,8 +53,8 @@ def make_board():
 def test_select_piece_by_center_click():
     board = make_board()
     controller = Controller(board)
-    controller.handle_click(50, 50)
-    controller.handle_click(150, 150)
+    controller.handle_click(50, 50)   # select wK at (0,0)
+    controller.handle_click(150, 150) # move wK diagonally to (1,1) -- legal for king
     controller.advance_clock(1000)
     assert str(board) == ". . .\n. wK .\n. . ."
 
@@ -76,12 +76,12 @@ def test_click_outside_board_is_ignored():
 
 
 def test_clicking_another_friendly_piece_replaces_selection():
-    board = Board.parse(["wR . wK", ". . ."])
+    board = Board.parse(["wR . wR", ". . .", ". . ."])
     controller = Controller(board)
-    controller.handle_click(50, 50)    # select wR
-    controller.handle_click(250, 50)   # replace selection with wK
-    controller.handle_click(250, 150)  # move wK to (1,2)
-    assert str(board) == "wR . .\n. . wK"
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # replace selection with wR at (0,2)
+    controller.handle_click(250, 150) # move wR straight down to (1,2) -- legal
+    assert str(board) == "wR . .\n. . wR\n. . ."
 
 
 # ---------- Movement rules ----------
@@ -92,45 +92,59 @@ def make_piece(t):
 
 # King
 def test_king_legal_one_step():
-    assert is_legal_move(make_piece("K"), (4, 4), (5, 5))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("K"), (4, 4), (5, 5))
 
 def test_king_illegal_two_steps():
-    assert not is_legal_move(make_piece("K"), (4, 4), (6, 4))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("K"), (4, 4), (6, 4))
 
 
 # Rook
 def test_rook_legal_straight():
-    assert is_legal_move(make_piece("R"), (0, 0), (0, 7))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (0, 7))
 
 def test_rook_illegal_diagonal():
-    assert not is_legal_move(make_piece("R"), (0, 0), (3, 3))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("R"), (0, 0), (3, 3))
 
 
 # Bishop
 def test_bishop_legal_diagonal():
-    assert is_legal_move(make_piece("B"), (0, 0), (4, 4))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (0, 0), (4, 4))
 
 def test_bishop_illegal_straight():
-    assert not is_legal_move(make_piece("B"), (0, 0), (0, 4))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("B"), (0, 0), (0, 4))
 
 
 # Queen
 def test_queen_legal_straight():
-    assert is_legal_move(make_piece("Q"), (3, 3), (3, 7))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (3, 7))
 
 def test_queen_legal_diagonal():
-    assert is_legal_move(make_piece("Q"), (3, 3), (6, 6))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (6, 6))
 
 def test_queen_illegal_knight_shape():
-    assert not is_legal_move(make_piece("Q"), (3, 3), (5, 4))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("Q"), (3, 3), (5, 4))
 
 
 # Knight
 def test_knight_legal_l_shape():
-    assert is_legal_move(make_piece("N"), (4, 4), (2, 5))
+    assert DEFAULT_RULE_SET.is_legal_move(make_piece("N"), (4, 4), (2, 5))
 
 def test_knight_illegal_straight():
-    assert not is_legal_move(make_piece("N"), (4, 4), (4, 6))
+    assert not DEFAULT_RULE_SET.is_legal_move(make_piece("N"), (4, 4), (4, 6))
+
+
+# RuleSet injection -- custom ruleset that allows any move
+class AllowAllRuleSet(RuleSet):
+    def is_legal_move(self, piece, src, dst):
+        return True
+
+
+def test_custom_ruleset_injected_into_controller():
+    board = Board.parse(["wK . .", ". . .", ". . ."])
+    controller = Controller(board, rule_set=AllowAllRuleSet())
+    controller.handle_click(50, 50)   # select wK at (0,0)
+    controller.handle_click(250, 50)  # normally illegal for king, allowed by custom ruleset
+    assert str(board) == ". . wK\n. . .\n. . ."
 
 
 # Integration: illegal move is ignored on the board
