@@ -53,10 +53,10 @@ class Controller:
 
     def advance_clock(self, ms):
         self._clock_ms += ms
-        due = [p for p in self._pending if p[0] <= self._clock_ms]
+        due = [p for p in self._pending if p[0] < self._clock_ms]
         for arrive_at, src, dst in due:
             self._board.move(src, dst)
-        self._pending = [p for p in self._pending if p[0] > self._clock_ms]
+        self._pending = [p for p in self._pending if p[0] >= self._clock_ms]
 
     def _pixel_to_cell(self, x, y):
         return y // self._cell_size, x // self._cell_size
