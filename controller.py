@@ -32,9 +32,10 @@ class Controller:
     def is_game_over(self):
         return self._game_over
 
-    def handle_jump(self, row, col):
+    def handle_jump(self, x, y):
         if self._game_over:
             return
+        row, col = self._pixel_to_cell(x, y)
         if not self._board.in_bounds(row, col):
             return
         piece = self._board.get(row, col)
