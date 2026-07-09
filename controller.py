@@ -48,6 +48,10 @@ class Controller:
             self._selected = None
             return
 
+        if self._is_route_blocked(self._selected, (row, col)):
+            self._selected = None
+            return
+
         arrive_at = self._clock_ms + MOVE_DURATION_MS
         self._pending.append((arrive_at, self._selected, (row, col)))
         self._selected = None
@@ -55,12 +59,16 @@ class Controller:
     def _is_in_flight(self, row, col):
         return any(src == (row, col) for _, src, _ in self._pending)
 
+    def _is_route_blocked(self, src, dst):
+        """Returns True if any in-flight piece's dst conflicts with this move's dst."""
+        return any(existing_dst == dst for _, _, existing_dst in self._pending)
+
     def advance_clock(self, ms):
         self._clock_ms += ms
-        due = [p for p in self._pending if p[0] < self._clock_ms]
+        due = [p for p in self._pending if p[0] <= self._clock_ms]
         for arrive_at, src, dst in due:
             self._board.move(src, dst)
-        self._pending = [p for p in self._pending if p[0] >= self._clock_ms]
+        self._pending = [p for p in self._pending if p[0] > self._clock_ms]
 
     def _pixel_to_cell(self, x, y):
         return y // self._cell_size, x // self._cell_size
