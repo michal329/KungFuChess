@@ -60,8 +60,11 @@ class Controller:
         return any(src == (row, col) for _, src, _ in self._pending)
 
     def _is_route_blocked(self, src, dst):
-        """Returns True if any in-flight piece's dst conflicts with this move's dst."""
-        return any(existing_dst == dst for _, _, existing_dst in self._pending)
+        """Returns True if any in-flight piece's dst shares the same column or row as this dst."""
+        return any(
+            existing_dst[0] == dst[0] or existing_dst[1] == dst[1]
+            for _, _, existing_dst in self._pending
+        )
 
     def advance_clock(self, ms):
         self._clock_ms += ms
