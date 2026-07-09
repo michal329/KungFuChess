@@ -359,6 +359,63 @@ def test_two_pieces_cannot_target_same_destination():
     assert str(board) == ". . wR\n. . .\nbR . ."  # bR stays, only wR moved
 
 
+# ---------- Advanced real-time interaction ----------
+
+def test_enemy_collision_first_piece_wins():
+    # wR and bR both heading to same cell -- route block prevents bR from scheduling
+    board = Board.parse(["wR . . .", ". . . .", ". . . bR"])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(350, 50)   # schedule wR to (0,3)
+    controller.handle_click(350, 250)  # select bR at (2,3)
+    controller.handle_click(350, 50)   # try bR to (0,3) -- same dst, blocked
+    controller.advance_clock(1000)
+    assert str(board) == ". . . wR\n. . . .\n. . . bR"
+
+def test_invalid_premove_src_piece_gone():
+    # wR scheduled to move, but captured before arrival -- move cancelled
+    board = Board.parse(["wR . bR", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(150, 50)   # schedule wR to (0,1)
+    # simulate wR being captured by directly moving bR onto it before arrival
+    board.move((0, 2), (0, 0))         # bR captures wR at (0,0)
+    controller.advance_clock(1000)     # wR move arrives but src is now bR
+    # bR should not teleport to (0,1)
+    assert board.get(0, 1) is None
+
+def test_friendly_piece_lands_on_dst_cancels_move():
+    # wR1 scheduled to (0,2), wR2 arrives there first -- wR1 move cancelled
+    board = Board.parse(["wR . . wR", ". . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(250, 50)   # schedule wR(0,0) to (0,2), arrives at t=1000
+    # manually place a friendly piece at dst before arrival
+    board.move((0, 3), (0, 2))         # wR at (0,3) moves to (0,2)
+    controller.advance_clock(1000)     # wR(0,0) arrives but (0,2) has friendly -- cancelled
+    assert board.get(0, 0) is not None  # wR still at src
+    assert board.get(0, 2) is not None  # friendly still at dst
+
+def test_movement_conflict_same_row_blocked():
+    board = Board.parse(["wR . . .", ". . . .", "bR . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(350, 50)   # schedule wR to (0,3)
+    controller.handle_click(50, 250)   # select bR at (2,0)
+    controller.handle_click(350, 250)  # try bR to (2,3) -- same col as wR dst, blocked
+    controller.advance_clock(1000)
+    assert str(board) == ". . . wR\n. . . .\nbR . . ."
+
+def test_enemy_capture_at_arrival():
+    # wR arrives at dst where enemy is -- capture succeeds
+    board = Board.parse(["wR . bP", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(250, 50)   # schedule wR to (0,2) where bP sits
+    controller.advance_clock(1000)
+    assert str(board) == ". . wR\n. . .\n. . ."
+
+
 # ---------- RuleSet injection ----------
 
 class AllowAllRuleSet(RuleSet):

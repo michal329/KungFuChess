@@ -53,25 +53,35 @@ class Controller:
             return
 
         arrive_at = self._clock_ms + MOVE_DURATION_MS
-        self._pending.append((arrive_at, self._selected, (row, col)))
+        self._pending.append((arrive_at, self._selected, (row, col), selected_piece.color))
         self._selected = None
 
     def _is_in_flight(self, row, col):
-        return any(src == (row, col) for _, src, _ in self._pending)
+        return any(src == (row, col) for _, src, _, __ in self._pending)
 
     def _is_route_blocked(self, src, dst):
         """Returns True if any in-flight piece's dst shares the same column or row as this dst."""
         return any(
             existing_dst[0] == dst[0] or existing_dst[1] == dst[1]
-            for _, _, existing_dst in self._pending
+            for _, _, existing_dst, __ in self._pending
         )
 
     def advance_clock(self, ms):
         self._clock_ms += ms
         due = [p for p in self._pending if p[0] <= self._clock_ms]
-        for arrive_at, src, dst in due:
-            self._board.move(src, dst)
         self._pending = [p for p in self._pending if p[0] > self._clock_ms]
+        for arrive_at, src, dst, color in due:
+            self._resolve_arrival(src, dst, color)
+
+    def _resolve_arrival(self, src, dst, scheduled_color):
+        """Apply a pending move at arrival time, respecting the current board state."""
+        src_piece = self._board.get(*src)
+        if src_piece is None or src_piece.color != scheduled_color:
+            return  # piece was captured or replaced before arrival
+        dst_piece = self._board.get(*dst)
+        if dst_piece is not None and dst_piece.color == scheduled_color:
+            return  # friendly piece landed at dst in the meantime -- cancel
+        self._board.move(src, dst)
 
     def _pixel_to_cell(self, x, y):
         return y // self._cell_size, x // self._cell_size
