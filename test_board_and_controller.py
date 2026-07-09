@@ -54,8 +54,8 @@ def test_select_piece_by_center_click():
     board = make_board()
     controller = Controller(board)
     controller.handle_click(50, 50)
-    controller.handle_click(150, 150)
-    controller.advance_clock(1000)
+    controller.handle_click(150, 150)  # schedule move to (1,1)
+    controller.advance_clock(1000)     # arrive
     assert str(board) == ". . .\n. wK .\n. . ."
 
 
@@ -79,8 +79,9 @@ def test_clicking_another_friendly_piece_replaces_selection():
     board = Board.parse(["wR . wR", ". . .", ". . ."])
     controller = Controller(board)
     controller.handle_click(50, 50)
-    controller.handle_click(250, 50)
-    controller.handle_click(250, 150)
+    controller.handle_click(250, 50)   # replace selection with wR at (0,2)
+    controller.handle_click(250, 150)  # schedule move to (1,2)
+    controller.advance_clock(1000)     # arrive
     assert str(board) == "wR . .\n. . wR\n. . ."
 
 
@@ -177,7 +178,8 @@ def test_rook_can_capture_enemy():
     board = Board.parse(["wR . bR .", ". . . .", ". . . .", ". . . ."])
     controller = Controller(board)
     controller.handle_click(50, 50)   # select wR at (0,0)
-    controller.handle_click(250, 50)  # capture bR at (0,2)
+    controller.handle_click(250, 50)  # schedule capture of bR at (0,2)
+    controller.advance_clock(1000)    # arrive
     assert str(board) == ". . wR .\n. . . .\n. . . .\n. . . ."
 
 def test_rook_cannot_capture_friendly():
@@ -191,7 +193,8 @@ def test_rook_blocked_by_friendly_cannot_reach_enemy_behind():
     board = Board.parse(["wR wP bR .", ". . . .", ". . . .", ". . . ."])
     controller = Controller(board)
     controller.handle_click(50, 50)   # select wR at (0,0)
-    controller.handle_click(250, 50)  # bR at (0,2) blocked by wP at (0,1)
+    controller.handle_click(250, 50)  # bR at (0,2) blocked by wP at (0,1) -- illegal
+    controller.advance_clock(1000)
     assert str(board) == "wR wP bR .\n. . . .\n. . . .\n. . . ."
 
 
@@ -244,15 +247,62 @@ def test_white_pawn_moves_up_on_board():
     board = Board.parse([". . .", ". wP .", ". . ."])
     controller = Controller(board)
     controller.handle_click(150, 150)  # select wP at (1,1)
-    controller.handle_click(150, 50)   # move to (0,1)
+    controller.handle_click(150, 50)   # schedule move to (0,1)
+    controller.advance_clock(1000)     # arrive
     assert str(board) == ". wP .\n. . .\n. . ."
 
 def test_white_pawn_captures_enemy_diagonally_on_board():
     board = Board.parse(["bP . .", ". wP .", ". . ."])
     controller = Controller(board)
     controller.handle_click(150, 150)  # select wP at (1,1)
-    controller.handle_click(50, 50)    # capture bP at (0,0)
+    controller.handle_click(50, 50)    # schedule capture of bP at (0,0)
+    controller.advance_clock(1000)     # arrive
     assert str(board) == "wP . .\n. . .\n. . ."
+
+
+# ---------- Timed movement ----------
+
+def test_piece_not_moved_before_arrival():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(250, 50)   # schedule move to (0,2)
+    assert str(board) == "wR . .\n. . .\n. . ."  # not moved yet
+
+def test_piece_not_moved_before_full_duration():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)
+    controller.handle_click(250, 50)
+    controller.advance_clock(500)      # half duration
+    assert str(board) == "wR . .\n. . .\n. . ."
+
+def test_piece_arrives_exactly_at_duration():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)
+    controller.handle_click(250, 50)
+    controller.advance_clock(1000)     # exactly MOVE_DURATION_MS
+    assert str(board) == ". . wR\n. . .\n. . ."
+
+def test_piece_arrives_after_more_than_duration():
+    board = Board.parse(["wR . .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)
+    controller.handle_click(250, 50)
+    controller.advance_clock(2000)     # more than MOVE_DURATION_MS
+    assert str(board) == ". . wR\n. . .\n. . ."
+
+def test_two_moves_arrive_in_order():
+    board = Board.parse(["wR . . .", ". . . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)    # select wR at (0,0)
+    controller.handle_click(150, 50)   # schedule move to (0,1)
+    controller.advance_clock(1000)     # first move arrives
+    controller.handle_click(150, 50)   # select wR now at (0,1)
+    controller.handle_click(350, 50)   # schedule move to (0,3)
+    controller.advance_clock(1000)     # second move arrives
+    assert str(board) == ". . . wR\n. . . ."
 
 
 # ---------- RuleSet injection ----------
@@ -267,6 +317,7 @@ def test_custom_ruleset_injected_into_controller():
     controller = Controller(board, rule_set=AllowAllRuleSet())
     controller.handle_click(50, 50)
     controller.handle_click(250, 50)
+    controller.advance_clock(1000)
     assert str(board) == ". . wK\n. . .\n. . ."
 
 
@@ -285,4 +336,5 @@ def test_legal_move_is_executed():
     controller = Controller(board)
     controller.handle_click(50, 50)
     controller.handle_click(250, 50)
+    controller.advance_clock(1000)
     assert str(board) == ". . wR\n. . .\n. . ."
