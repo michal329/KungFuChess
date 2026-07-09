@@ -24,9 +24,16 @@ class Controller:
         self._cell_size = cell_size
         self._selected = None
         self._clock_ms = 0
-        self._pending = []  # list of (arrive_at_ms, src, dst)
+        self._pending = []  # list of (arrive_at_ms, src, dst, color)
+        self._game_over = False
+
+    @property
+    def is_game_over(self):
+        return self._game_over
 
     def handle_click(self, x, y):
+        if self._game_over:
+            return
         row, col = self._pixel_to_cell(x, y)
         if not self._board.in_bounds(row, col):
             return
@@ -77,11 +84,13 @@ class Controller:
         """Apply a pending move at arrival time, respecting the current board state."""
         src_piece = self._board.get(*src)
         if src_piece is None or src_piece.color != scheduled_color:
-            return  # piece was captured or replaced before arrival
+            return
         dst_piece = self._board.get(*dst)
         if dst_piece is not None and dst_piece.color == scheduled_color:
-            return  # friendly piece landed at dst in the meantime -- cancel
+            return
         self._board.move(src, dst)
+        if dst_piece is not None and dst_piece.type == "K":
+            self._game_over = True
 
     def _pixel_to_cell(self, x, y):
         return y // self._cell_size, x // self._cell_size

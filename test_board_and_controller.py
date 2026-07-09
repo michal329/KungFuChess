@@ -416,6 +416,55 @@ def test_enemy_capture_at_arrival():
     assert str(board) == ". . wR\n. . .\n. . ."
 
 
+# ---------- Game over ----------
+
+def test_capturing_enemy_king_ends_game():
+    board = Board.parse(["wR . bK", ". . .", ". . ."])
+    controller = Controller(board)
+    assert not controller.is_game_over
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # schedule capture of bK at (0,2)
+    controller.advance_clock(1000)
+    assert controller.is_game_over
+
+def test_clicks_ignored_after_game_over():
+    board = Board.parse(["wR . bK", ". . .", "wR . ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # capture bK -- game over at t=1000
+    controller.advance_clock(1000)
+    assert controller.is_game_over
+    controller.handle_click(50, 250)  # try to select wR at (2,0) -- ignored
+    controller.handle_click(150, 250) # would move wR to (2,1) -- ignored
+    controller.advance_clock(1000)
+    assert board.get(2, 0) is not None  # wR at (2,0) never moved
+    assert board.get(2, 1) is None
+
+def test_game_not_over_without_king_capture():
+    board = Board.parse(["wR . bR", ". . .", ". bK ."])
+    controller = Controller(board)
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # capture bR at (0,2) -- not a king
+    controller.advance_clock(1000)
+    assert not controller.is_game_over
+
+def test_pending_moves_cancelled_after_game_over():
+    board = Board.parse(["wR . bK", ". . .", "wR . . "])
+    controller = Controller(board)
+    controller.handle_click(50, 250)  # select wR at (2,0)
+    controller.handle_click(150, 250) # schedule wR(2,0) to (2,1), arrives t=1000
+    controller.handle_click(50, 50)   # select wR at (0,0)
+    controller.handle_click(250, 50)  # schedule capture bK, arrives t=1000
+    controller.advance_clock(1000)
+    assert controller.is_game_over
+    # wR at (2,0) move also arrived at t=1000 -- may or may not execute,
+    # but no further moves possible after game over
+    controller.handle_click(50, 250)
+    controller.handle_click(250, 250)
+    controller.advance_clock(1000)
+    assert board.get(2, 2) is None  # no move executed after game over
+
+
 # ---------- RuleSet injection ----------
 
 class AllowAllRuleSet(RuleSet):

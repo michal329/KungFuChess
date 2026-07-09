@@ -85,6 +85,12 @@ class Board:
     def in_bounds(self, row, col):
         return 0 <= row < self.rows and 0 <= col < self.cols
 
+    def has_king(self, color):
+        return any(
+            cell is not None and cell.color == color and cell.type == "K"
+            for row in self._grid for cell in row
+        )
+
     def move(self, src, dst):
         src_row, src_col = src
         dst_row, dst_col = dst
