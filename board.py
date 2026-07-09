@@ -97,6 +97,11 @@ class Board:
         self._grid[dst_row][dst_col] = self._grid[src_row][src_col]
         self._grid[src_row][src_col] = None
 
+    def promote(self, row, col, new_type):
+        piece = self._grid[row][col]
+        if piece is not None:
+            self._grid[row][col] = Piece(piece.color, new_type)
+
     def __str__(self):
         lines = []
         for row in self._grid:

@@ -64,12 +64,20 @@ def _knight_legal(piece, src, dst, board):
     return sorted([abs(dr), abs(dc)]) == [1, 2]
 
 
+def _pawn_start_row(piece, board):
+    return board.rows - 1 if piece.color == "w" else 0
+
+
 def _pawn_legal(piece, src, dst, board):
     dr, dc = _delta(src, dst)
     forward = -1 if piece.color == "w" else 1
-    # forward step -- destination must be empty
+    # single forward step -- destination must be empty
     if dc == 0 and dr == forward:
         return board.get(dst[0], dst[1]) is None
+    # double forward step from start row -- both cells must be empty
+    if dc == 0 and dr == 2 * forward and src[0] == _pawn_start_row(piece, board):
+        mid = (src[0] + forward, src[1])
+        return board.get(mid[0], mid[1]) is None and board.get(dst[0], dst[1]) is None
     # diagonal capture -- destination must have an enemy piece
     if abs(dc) == 1 and dr == forward:
         return board.get(dst[0], dst[1]) is not None

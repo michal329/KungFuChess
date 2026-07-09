@@ -217,8 +217,8 @@ def test_black_pawn_cannot_move_up():
     assert not DEFAULT_RULE_SET.is_legal_move(Piece("b", "P"), (1, 1), (0, 1), board)
 
 def test_pawn_cannot_move_two_cells():
-    board = Board.parse([". . .", ". . .", ". wP ."])
-    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (2, 1), (0, 1), board)
+    board = Board.parse([". . .", ". wP .", ". . .", ". . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (1, 1), (3, 1), board)
 
 def test_pawn_blocked_by_piece_ahead():
     board = Board.parse([". bP .", ". wP .", ". . ."])
@@ -244,20 +244,20 @@ def test_pawn_cannot_capture_empty_diagonal():
 # ---------- Pawn integration ----------
 
 def test_white_pawn_moves_up_on_board():
-    board = Board.parse([". . .", ". wP .", ". . ."])
+    board = Board.parse([". . .", ". . .", ". wP .", ". . ."])
     controller = Controller(board)
-    controller.handle_click(150, 150)
-    controller.handle_click(150, 50)
+    controller.handle_click(150, 250)  # select wP at (2,1)
+    controller.handle_click(150, 150)  # move to (1,1)
     controller.advance_clock(1000)
-    assert str(board) == ". wP .\n. . .\n. . ."
+    assert str(board) == ". . .\n. wP .\n. . .\n. . ."
 
 def test_white_pawn_captures_enemy_diagonally_on_board():
-    board = Board.parse(["bP . .", ". wP .", ". . ."])
+    board = Board.parse([". . .", "bP . .", ". wP .", ". . ."])
     controller = Controller(board)
-    controller.handle_click(150, 150)
-    controller.handle_click(50, 50)
+    controller.handle_click(150, 250)  # select wP at (2,1)
+    controller.handle_click(50, 150)   # capture bP at (1,0)
     controller.advance_clock(1000)
-    assert str(board) == "wP . .\n. . .\n. . ."
+    assert str(board) == ". . .\nwP . .\n. . .\n. . ."
 
 
 # ---------- Timed movement ----------
@@ -414,6 +414,52 @@ def test_enemy_capture_at_arrival():
     controller.handle_click(250, 50)   # schedule wR to (0,2) where bP sits
     controller.advance_clock(1000)
     assert str(board) == ". . wR\n. . .\n. . ."
+
+
+# ---------- Pawn double step and promotion ----------
+
+def test_white_pawn_double_step_from_start_row():
+    board = Board.parse([". . .", ". . .", ". . .", ". . .", ". . .", ". . .", ". . .", ". wP ."])
+    assert DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (7, 1), (5, 1), board)
+
+def test_black_pawn_double_step_from_start_row():
+    board = Board.parse([". bP .", ". . .", ". . .", ". . .", ". . .", ". . .", ". . .", ". . ."])
+    assert DEFAULT_RULE_SET.is_legal_move(Piece("b", "P"), (0, 1), (2, 1), board)
+
+def test_pawn_double_step_blocked_by_piece_in_middle():
+    board = Board.parse([". . .", ". . .", ". . .", ". . .", ". . .", ". . .", ". bP .", ". wP ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (7, 1), (5, 1), board)
+
+def test_pawn_double_step_not_allowed_from_non_start_row():
+    board = Board.parse([". . .", ". . .", ". . .", ". . .", ". . .", ". wP .", ". . .", ". . ."])
+    assert not DEFAULT_RULE_SET.is_legal_move(Piece("w", "P"), (5, 1), (3, 1), board)
+
+def test_white_pawn_promotes_to_queen_on_last_row():
+    board = Board.parse([". . .", ". wP .", ". . .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(150, 150)  # select wP at (1,1)
+    controller.handle_click(150, 50)   # move to (0,1)
+    controller.advance_clock(1000)
+    promoted = board.get(0, 1)
+    assert promoted is not None and promoted.type == "Q" and promoted.color == "w"
+
+def test_black_pawn_promotes_to_queen_on_last_row():
+    board = Board.parse([". . .", ". bP .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(150, 150)  # select bP at (1,1)
+    controller.handle_click(150, 250)  # move to (2,1)
+    controller.advance_clock(1000)
+    promoted = board.get(2, 1)
+    assert promoted is not None and promoted.type == "Q" and promoted.color == "b"
+
+def test_pawn_no_promotion_when_not_on_last_row():
+    board = Board.parse([". . .", ". . .", ". wP .", ". . ."])
+    controller = Controller(board)
+    controller.handle_click(150, 250)  # select wP at (2,1)
+    controller.handle_click(150, 150)  # move to (1,1)
+    controller.advance_clock(1000)
+    piece = board.get(1, 1)
+    assert piece is not None and piece.type == "P"
 
 
 # ---------- Game over ----------

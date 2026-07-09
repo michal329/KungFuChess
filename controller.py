@@ -91,6 +91,15 @@ class Controller:
         self._board.move(src, dst)
         if dst_piece is not None and dst_piece.type == "K":
             self._game_over = True
+        self._check_promotion(dst, scheduled_color)
+
+    def _check_promotion(self, dst, color):
+        piece = self._board.get(*dst)
+        if piece is None or piece.type != "P":
+            return
+        promotion_row = 0 if color == "w" else self._board.rows - 1
+        if dst[0] == promotion_row:
+            self._board.promote(dst[0], dst[1], "Q")
 
     def _pixel_to_cell(self, x, y):
         return y // self._cell_size, x // self._cell_size
