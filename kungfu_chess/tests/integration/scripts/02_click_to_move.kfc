@@ -1,0 +1,14 @@
+Board
+wK . .
+. . .
+
+print board
+
+click 0 0
+click 100 0
+
+print board
+
+wait 1000
+
+print board

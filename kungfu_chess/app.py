@@ -1,9 +1,9 @@
 """
-Kung Fu Chess — text mode entry point.
+Entry point for text mode.
 
 Usage:
-    python main.py <script.kfc>   # run a .kfc script file
-    python main.py                # read .kfc script from stdin
+    python -m kungfu_chess.app <script.kfc>   # run a .kfc file
+    python -m kungfu_chess.app                # read from stdin
 """
 import sys
 from kungfu_chess.texttests.script_runner import ScriptRunner
