@@ -6,7 +6,7 @@ CLICK = "click"
 WAIT = "wait"
 PRINT = "print"
 PRINT_BOARD_TARGET = "board"
-JUMP = "jump"
+PRINT_HISTORY_TARGET = "history"
 
 
 def parse_commands_section(lines):
