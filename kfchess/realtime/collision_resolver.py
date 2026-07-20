@@ -1,7 +1,7 @@
 """CollisionResolver: what happens when a due move meets the board's
 *current* occupants -- the part of real-time resolution that isn't
 plain move legality (RuleEngine's job) or clock/queue bookkeeping
-(GameEngine's job): friendly mid-route blocking, and airborne-enemy
+(GameEngine's job): mid-route blocking, and airborne-enemy
 interception.
 
 Stateless, same idiom as RuleEngine elsewhere: constructed once with no
@@ -15,31 +15,37 @@ from __future__ import annotations
 from typing import List, Optional
 
 from kfchess.model.board import Board
-from kfchess.model.piece import same_color
 from kfchess.model.position import Position
 from kfchess.realtime.motion import PendingJump, PendingMove
 from kfchess.rules.piece_rules import line_path_cells
 
 
 class CollisionResolver:
-    def stop_before_friendly_block(self, pending_move: PendingMove, board: Board) -> Optional[Position]:
-        """Where a due move should stop short, if a friendly piece is now
-        blocking its route -- or None if that doesn't apply.
+    def stop_before_block(self, pending_move: PendingMove, board: Board) -> Optional[Position]:
+        """Where a due move should stop short, if anything -- friend or
+        enemy -- is now occupying a square partway along its route, or
+        None if the path is fully clear.
+
+        There is no advance notion of a route being "reserved" or
+        "locked": this is checked only at the instant a move actually
+        resolves, against whatever the board looks like right then. A
+        piece's path can be blocked by something that wasn't even there
+        when the move was queued.
 
         Only meaningful for a straight-line, multi-cell move; a knight's
         jump or a single-step move (no intermediate square) returns None
         immediately.
 
-        * Path fully clear -> None (ordinary path-clear handling in
-          RuleEngine decides the outcome, same as before this rule
-          existed).
-        * First occupied cell holds an enemy -> None (an enemy mid-route
-          is still a fully-dropped premove, via the ordinary path-clear
-          check).
-        * First occupied cell holds a friendly piece -> the last clear
-          cell before it (which is ``pending_move.from_pos`` itself if
-          the very first step is already blocked -- the piece simply
-          doesn't move).
+        * Path fully clear -> None (ordinary legality handling in
+          RuleEngine decides the outcome from here, e.g. whether the
+          destination itself is a legal capture or a friendly-fire
+          rejection).
+        * First occupied cell (friend or enemy, it doesn't matter which)
+          -> the last clear cell before it (which is
+          ``pending_move.from_pos`` itself if the very first step is
+          already blocked -- the piece simply doesn't move). The mover
+          never reaches, and never captures, whatever's blocking it --
+          it just stops one square short.
         """
         from_pos, to_pos = pending_move.from_pos, pending_move.to_pos
         path = line_path_cells(from_pos, to_pos)
@@ -48,9 +54,8 @@ class CollisionResolver:
 
         prev = from_pos
         for cell in path:
-            occupant = board.get(cell)
-            if occupant is not None:
-                return prev if same_color(occupant, pending_move.piece) else None
+            if board.get(cell) is not None:
+                return prev
             prev = cell
         return None  # path fully clear
 

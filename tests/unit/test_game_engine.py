@@ -58,6 +58,35 @@ def test_pawn_promotes_on_back_rank(empty_board):
     assert state.board.get(Position(0, 0)) == Piece(QUEEN, WHITE)
 
 
+def test_pawn_capturing_the_enemy_king_on_the_back_rank_does_not_promote(empty_board):
+    """The game is already over the instant this move lands -- there's
+    no point turning the pawn into a Queen for a game that just ended."""
+    empty_board.set(Position(1, 0), Piece(PAWN, WHITE))
+    empty_board.set(Position(0, 1), Piece(KING, BLACK))  # diagonal capture, also the back rank
+    engine = GameEngine(empty_board)
+    state = GameState(board=empty_board)
+
+    engine.attempt_move(state, Position(1, 0), Position(0, 1))
+    engine.tick(state, 1000)
+
+    assert state.board.get(Position(0, 1)) == Piece(PAWN, WHITE)  # still a pawn, not a queen
+    assert state.game_over
+    assert state.winner == WHITE
+
+
+def test_pawn_capturing_a_non_king_on_the_back_rank_still_promotes(empty_board):
+    empty_board.set(Position(1, 0), Piece(PAWN, WHITE))
+    empty_board.set(Position(0, 1), Piece(ROOK, BLACK))
+    engine = GameEngine(empty_board)
+    state = GameState(board=empty_board)
+
+    engine.attempt_move(state, Position(1, 0), Position(0, 1))
+    engine.tick(state, 1000)
+
+    assert state.board.get(Position(0, 1)) == Piece(QUEEN, WHITE)
+    assert not state.game_over
+
+
 def test_friendly_block_stops_move_short(empty_board):
     mover = Piece(ROOK, WHITE)
     empty_board.set(Position(0, 0), mover)
@@ -81,3 +110,20 @@ def test_busy_piece_cannot_be_reselected_or_redirected(empty_board):
 
     assert not engine.is_selectable(state, Position(0, 0))
     assert not engine.attempt_move(state, Position(0, 0), Position(0, 1))
+
+
+def test_pending_move_records_start_time_for_animation(empty_board):
+    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
+    engine = GameEngine(empty_board, move_duration=1000)
+    state = GameState(board=empty_board)
+
+    engine.tick(state, 500)  # advance the clock before queuing
+    engine.attempt_move(state, Position(0, 0), Position(0, 2))
+
+    assert state.pending[0].start_time == 500
+    assert state.pending[0].arrival_time == 500 + 2 * 1000
+
+
+def test_cooldown_duration_is_publicly_readable(empty_board):
+    engine = GameEngine(empty_board, cooldown_duration=1234)
+    assert engine.cooldown_duration == 1234

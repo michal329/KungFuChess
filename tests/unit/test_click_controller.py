@@ -57,3 +57,14 @@ def test_clicks_ignored_after_game_over(empty_board):
     state.game_over = True
     engine.handle_click(state, x=50, y=50)
     assert engine.selection is None
+
+
+def test_second_click_on_same_square_triggers_jump_not_move(empty_board):
+    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
+    engine, state = _engine_and_state(empty_board)
+    engine.handle_click(state, x=50, y=50)
+    engine.handle_click(state, x=50, y=50)  # same square again
+    assert engine.selection is None
+    assert state.pending == []  # not a move attempt
+    assert len(state.airborne) == 1
+    assert state.airborne[0].pos == Position(0, 0)

@@ -1,6 +1,6 @@
 # git repo: https://github.com/michal329/KungFuChess
-"""Kung Fu Chess -- graphical entry point. Left click selects/moves a
-piece; right click sends it airborne on a jump."""
+"""Kung Fu Chess -- graphical entry point. Left click selects a piece,
+then left click a destination to move it."""
 from kfchess.engine.game_engine import GameEngine
 from kfchess.engine.game_state import GameState
 from kfchess.gui.game_loop import GameLoop

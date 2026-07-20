@@ -1,7 +1,8 @@
 Board:
 WR BK
 Commands:
-jump 150 0
+click 150 0
+click 150 0
 click 0 0
 click 150 0
 print board

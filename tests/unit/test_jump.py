@@ -9,7 +9,7 @@ def test_jump_sends_piece_airborne(empty_board):
     engine = GameEngine(empty_board, jump_duration=500)
     state = GameState(board=empty_board)
 
-    engine.handle_jump(state, x=50, y=50)
+    assert engine.attempt_jump(state, Position(0, 0))
     assert engine.is_airborne(state, Position(0, 0))
     assert state.board.get(Position(0, 0)) is not None  # never relocates
 
@@ -20,7 +20,7 @@ def test_jump_expires_with_no_interception_lands_unchanged(empty_board):
     engine = GameEngine(empty_board, jump_duration=500, cooldown_duration=200)
     state = GameState(board=empty_board)
 
-    engine.handle_jump(state, x=50, y=50)
+    engine.attempt_jump(state, Position(0, 0))
     engine.tick(state, 500)
     assert not engine.is_airborne(state, Position(0, 0))
     assert state.board.get(Position(0, 0)) == piece
@@ -35,7 +35,7 @@ def test_airborne_piece_intercepts_arriving_enemy(empty_board):
     engine = GameEngine(empty_board, move_duration=1000, jump_duration=5000)
     state = GameState(board=empty_board)
 
-    engine.handle_jump(state, x=350, y=50)  # defender jumps
+    engine.attempt_jump(state, Position(0, 3))  # defender jumps
     engine.attempt_move(state, Position(0, 0), Position(0, 3))  # attacker moves in
     engine.tick(state, 3000)  # attacker arrives while defender still airborne
 
@@ -50,7 +50,7 @@ def test_friendly_arrival_at_airborne_cell_is_ordinary_friendly_fire_rejection(e
     engine = GameEngine(empty_board, jump_duration=5000)
     state = GameState(board=empty_board)
 
-    engine.handle_jump(state, x=350, y=50)
+    engine.attempt_jump(state, Position(0, 3))
     assert not engine.attempt_move(state, Position(0, 0), Position(0, 3))
 
 
@@ -59,8 +59,8 @@ def test_busy_piece_cannot_jump_twice(empty_board):
     engine = GameEngine(empty_board, jump_duration=5000)
     state = GameState(board=empty_board)
 
-    engine.handle_jump(state, x=50, y=50)
-    engine.handle_jump(state, x=50, y=50)  # ignored -- already airborne
+    assert engine.attempt_jump(state, Position(0, 0))
+    assert not engine.attempt_jump(state, Position(0, 0))  # already airborne
     assert len(state.airborne) == 1
 
 
@@ -70,5 +70,17 @@ def test_moving_piece_cannot_jump(empty_board):
     state = GameState(board=empty_board)
 
     engine.attempt_move(state, Position(0, 0), Position(0, 3))
-    engine.handle_jump(state, x=50, y=50)
+    assert not engine.attempt_jump(state, Position(0, 0))
     assert state.airborne == []
+
+
+def test_jump_via_selecting_and_clicking_same_square_again(empty_board):
+    """The actual UI trigger: select a piece, then click its own square
+    a second time -- see kfchess.input.click_controller.ClickController."""
+    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
+    engine = GameEngine(empty_board, jump_duration=500)
+    state = GameState(board=empty_board)
+
+    engine.handle_click(state, x=50, y=50)
+    engine.handle_click(state, x=50, y=50)
+    assert engine.is_airborne(state, Position(0, 0))

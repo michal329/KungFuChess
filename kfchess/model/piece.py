@@ -40,7 +40,7 @@ def same_color(piece_a: "Piece | None", piece_b: "Piece | None") -> bool:
 
     Centralizes a check that would otherwise be duplicated everywhere
     two board cells' occupants are compared (friendly-fire detection,
-    selection/reselection, route-lock color comparison).
+    selection/reselection).
     """
     if piece_a is None or piece_b is None:
         return False

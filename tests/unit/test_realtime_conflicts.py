@@ -1,52 +1,58 @@
-from kfchess.model.piece import BISHOP, BLACK, ROOK, WHITE, Piece
+from kfchess.model.piece import BISHOP, ROOK, WHITE, BLACK, Piece
 from kfchess.model.position import Position
 
 from kfchess.engine.game_engine import GameEngine
 from kfchess.engine.game_state import GameState
 
 
-def test_opposite_color_move_sharing_a_column_span_on_different_rows_is_rejected(empty_board):
-    """Route locking compares only the axis (horizontal/vertical) and the
-    span of columns/rows crossed -- not which row/column it's fixed on.
-    Two horizontal moves on different rows with overlapping column spans
-    still count as sharing a route."""
+def test_opposite_color_moves_sharing_overlapping_lanes_can_both_be_queued(empty_board):
+    """There is no advance route lock: a move never reserves a lane. Two
+    opposite-color moves can freely be queued along overlapping spans;
+    whatever conflict actually develops is resolved reactively, only
+    when a move resolves, against the board as it looks right then --
+    see test_enemy_blocks_move_mid_flight_stops_it_short below."""
     empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
     empty_board.set(Position(2, 2), Piece(ROOK, BLACK))
     engine = GameEngine(empty_board, move_duration=1000)
     state = GameState(board=empty_board)
 
     assert engine.attempt_move(state, Position(0, 0), Position(0, 4))  # occupies cols 0-4
-    assert not engine.attempt_move(state, Position(2, 2), Position(2, 6))  # cols 2-6 overlap
+    assert engine.attempt_move(state, Position(2, 2), Position(2, 6))  # cols 2-6 overlap -- allowed
 
 
-def test_non_overlapping_column_spans_do_not_conflict(empty_board):
-    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
-    empty_board.set(Position(2, 5), Piece(ROOK, BLACK))
+def test_enemy_blocks_move_mid_flight_stops_it_short(empty_board):
+    """A blocker mid-route stops the mover short regardless of color --
+    unlike a friendly block, an enemy blocker used to fail the whole
+    move outright; now both are treated the same way."""
+    mover = Piece(ROOK, WHITE)
+    empty_board.set(Position(0, 0), mover)
     engine = GameEngine(empty_board, move_duration=1000)
     state = GameState(board=empty_board)
+    engine.attempt_move(state, Position(0, 0), Position(0, 4))
 
-    assert engine.attempt_move(state, Position(0, 0), Position(0, 1))  # cols 0-1
-    assert engine.attempt_move(state, Position(2, 5), Position(2, 7))  # cols 5-7, no overlap
+    # An enemy piece drops into the route mid-flight, after the move was
+    # already queued.
+    blocker = Piece(ROOK, BLACK)
+    empty_board.set(Position(0, 2), blocker)
+    engine.tick(state, 4000)
+
+    assert state.board.get(Position(0, 1)) == mover  # stopped short
+    assert state.board.get(Position(0, 4)) is None
+    assert state.board.get(Position(0, 2)) == blocker  # blocker never captured, never moved
 
 
-def test_same_color_moves_sharing_a_route_do_not_conflict(empty_board):
-    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
-    empty_board.set(Position(2, 2), Piece(ROOK, WHITE))
+def test_diagonal_move_also_stops_short_on_a_mid_route_block(empty_board):
+    mover = Piece(BISHOP, WHITE)
+    empty_board.set(Position(0, 0), mover)
     engine = GameEngine(empty_board, move_duration=1000)
     state = GameState(board=empty_board)
+    engine.attempt_move(state, Position(0, 0), Position(4, 4))
 
-    assert engine.attempt_move(state, Position(0, 0), Position(0, 4))
-    assert engine.attempt_move(state, Position(2, 2), Position(2, 6))
+    empty_board.set(Position(2, 2), Piece(ROOK, BLACK))
+    engine.tick(state, 4000)
 
-
-def test_diagonal_moves_never_route_lock(empty_board):
-    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
-    empty_board.set(Position(4, 4), Piece(BISHOP, BLACK))
-    engine = GameEngine(empty_board, move_duration=1000)
-    state = GameState(board=empty_board)
-
-    assert engine.attempt_move(state, Position(0, 0), Position(0, 4))
-    assert engine.attempt_move(state, Position(4, 4), Position(1, 1))
+    assert state.board.get(Position(1, 1)) == mover  # stopped short
+    assert state.board.get(Position(4, 4)) is None
 
 
 def test_earliest_arrival_wins_the_square_then_a_later_enemy_can_still_capture_it(empty_board):
@@ -64,3 +70,61 @@ def test_earliest_arrival_wins_the_square_then_a_later_enemy_can_still_capture_i
 
     assert state.board.get(Position(1, 0)) == second  # second captured first there
     assert state.board.get(Position(0, 0)) is None
+
+
+def test_enemy_arriving_at_a_vacated_origin_does_not_capture_the_in_flight_piece(empty_board):
+    """The exact reported bug: a piece already in flight has genuinely
+    left its origin -- an opponent's move targeting that square lands
+    on empty ground, not a capture, and the in-flight piece completes
+    its own journey completely untouched."""
+    mover = Piece(ROOK, WHITE)
+    empty_board.set(Position(0, 0), mover)          # about to fly away
+    empty_board.set(Position(5, 0), Piece(ROOK, BLACK))
+    engine = GameEngine(empty_board, move_duration=1000)
+    state = GameState(board=empty_board)
+
+    assert engine.attempt_move(state, Position(0, 0), Position(0, 5))  # mover: 5 cells -> arrives 5000
+    assert engine.attempt_move(state, Position(5, 0), Position(0, 0))  # enemy targets the now-vacated origin
+
+    engine.tick(state, 5000)
+
+    assert state.board.get(Position(0, 5)) == mover           # completed its own journey, untouched
+    assert state.board.get(Position(0, 0)) == Piece(ROOK, BLACK)  # landed on empty ground, not a capture
+
+
+def test_queuing_a_move_onto_an_in_flight_pieces_origin_is_legal_at_queue_time_too(empty_board):
+    """The vacated-origin treatment isn't just applied at resolution --
+    attempt_move's own legality check sees it too, immediately."""
+    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
+    empty_board.set(Position(5, 0), Piece(ROOK, BLACK))
+    engine = GameEngine(empty_board, move_duration=1000)
+    state = GameState(board=empty_board)
+
+    assert engine.attempt_move(state, Position(0, 0), Position(0, 5))
+    # Without the fix this would be evaluated as a legal *capture* of the
+    # rook still nominally recorded at (0,0); it should just be an
+    # ordinary move onto what is, in every sense that matters, empty
+    # ground.
+    assert engine.attempt_move(state, Position(5, 0), Position(0, 0))
+
+
+def test_path_is_not_blocked_by_another_pieces_still_unresolved_origin(empty_board):
+    """A mover's path crossing a square that's some OTHER piece's
+    not-yet-resolved origin must pass straight through -- that other
+    piece has already vacated it too, even though it hasn't formally
+    landed anywhere yet."""
+    mover = Piece(ROOK, WHITE)
+    other = Piece(ROOK, BLACK)
+    empty_board.set(Position(0, 0), mover)
+    empty_board.set(Position(0, 3), other)  # directly in mover's path
+    engine = GameEngine(empty_board, move_duration=1000)
+    state = GameState(board=empty_board)
+
+    assert engine.attempt_move(state, Position(0, 3), Position(6, 3))  # other: 6 cells -> arrives 6000
+    assert engine.attempt_move(state, Position(0, 0), Position(0, 5))  # mover: 5 cells -> arrives 5000, crosses (0,3)
+
+    engine.tick(state, 5000)  # mover resolves; other is still mid-flight (due at 6000)
+    assert state.board.get(Position(0, 5)) == mover  # passed straight through, unblocked
+
+    engine.tick(state, 1000)  # other resolves too, completely unaffected
+    assert state.board.get(Position(6, 3)) == other
