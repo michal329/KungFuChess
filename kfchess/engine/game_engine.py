@@ -34,14 +34,16 @@ from kfchess.events.events import (
     GameEvent,
     GameOverEvent,
     JumpLandedEvent,
+    JumpQueuedEvent,
     MoveCompletedEvent,
+    MoveQueuedEvent,
     Observer,
     TimeAdvancedEvent,
 )
 from kfchess.input.board_mapper import BoardMapper
 from kfchess.input.click_controller import ClickController
 from kfchess.model.board import Board
-from kfchess.model.piece import KING, PAWN, QUEEN, Piece
+from kfchess.model.piece import BLACK, KING, PAWN, QUEEN, WHITE, Piece
 from kfchess.model.position import Position
 from kfchess.realtime.collision_resolver import CollisionResolver
 from kfchess.realtime.motion import PendingJump, PendingMove
@@ -158,11 +160,13 @@ class GameEngine:
         if piece is None or self._is_busy(state, pos):
             return False
 
+        land_time = state.current_time + self._jump_duration
         state.airborne.append(PendingJump(
             piece=piece, pos=pos,
-            land_time=state.current_time + self._jump_duration,
+            land_time=land_time,
             start_time=state.current_time,
         ))
+        self._notify(JumpQueuedEvent(piece=piece, pos=pos, start_time=state.current_time, land_time=land_time))
         return True
 
     def is_selectable(self, state: GameState, pos: Position) -> bool:
@@ -206,6 +210,26 @@ class GameEngine:
             piece=piece, from_pos=from_pos, to_pos=to_pos,
             arrival_time=arrival, start_time=state.current_time,
         ))
+        self._notify(MoveQueuedEvent(
+            piece=piece, from_pos=from_pos, to_pos=to_pos,
+            start_time=state.current_time, arrival_time=arrival,
+        ))
+        return True
+
+    def resign(self, state: GameState, color: str) -> bool:
+        """*color* forfeits -- the opposite color wins outright, same
+        as any other way the game can end. Unlike attempt_move/
+        attempt_jump, this is never gated by busy/in-transit/airborne/
+        cooldown checks: resigning isn't a board action being
+        validated, it's a decision to stop playing, so it's always
+        allowed -- including with a piece mid-flight. A no-op (returns
+        False) if the game's already over."""
+        if state.game_over:
+            return False
+
+        state.game_over = True
+        state.winner = BLACK if color == WHITE else WHITE
+        self._notify(GameOverEvent(winner=state.winner))
         return True
 
     def tick(self, state: GameState, ms: int) -> None:

@@ -1,7 +1,16 @@
 from kfchess.engine.game_engine import GameEngine
 from kfchess.engine.game_state import GameState
+from kfchess.events.events import JumpQueuedEvent, Observer
 from kfchess.model.piece import BLACK, ROOK, WHITE, Piece
 from kfchess.model.position import Position
+
+
+class _Recorder(Observer):
+    def __init__(self):
+        self.events = []
+
+    def on_event(self, event):
+        self.events.append(event)
 
 
 def test_jump_sends_piece_airborne(empty_board):
@@ -12,6 +21,20 @@ def test_jump_sends_piece_airborne(empty_board):
     assert engine.attempt_jump(state, Position(0, 0))
     assert engine.is_airborne(state, Position(0, 0))
     assert state.board.get(Position(0, 0)) is not None  # never relocates
+
+
+def test_attempt_jump_fires_jump_queued_event_immediately(empty_board):
+    empty_board.set(Position(0, 0), Piece(ROOK, WHITE))
+    engine = GameEngine(empty_board, jump_duration=500)
+    state = GameState(board=empty_board)
+    recorder = _Recorder()
+    engine.add_observer(recorder)
+
+    engine.attempt_jump(state, Position(0, 0))
+
+    assert recorder.events == [JumpQueuedEvent(
+        piece=Piece(ROOK, WHITE), pos=Position(0, 0), start_time=0, land_time=500,
+    )]
 
 
 def test_jump_expires_with_no_interception_lands_unchanged(empty_board):
