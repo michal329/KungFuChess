@@ -1,0 +1,19 @@
+# Small, working, single-process deployment (see Server_Design.md's
+# "what actually runs today" section) -- one ServerApp instance holding
+# every room/game in its own memory, backed by a SQLite file on a
+# volume. This is deployment mode #1 of the two the architecture doc
+# distinguishes; the multi-shard/NATS/Redis/PostgreSQL design in
+# Server_Design.md is mode #2, proposed but not implemented in code
+# yet -- "small and working" beats a large distributed system that
+# doesn't actually run.
+services:
+  server:
+    build: .
+    ports:
+      - "8765:8765"
+    volumes:
+      - kfchess-data:/data
+    restart: unless-stopped
+
+volumes:
+  kfchess-data:

@@ -1,0 +1,32 @@
+# Only kfchess/, protocol/, server/, server_main.py, and
+# requirements-server.txt actually go into the server image (see
+# Dockerfile) -- everything else here is excluded so it's never even
+# offered to `docker build`, keeping the image small and unambiguous
+# about what's actually running.
+.git/
+.gitignore
+.dockerignore
+.pytest_cache/
+.claude/
+__pycache__/
+*.pyc
+*.db
+kfchess.egg-info/
+
+# GUI client and its assets: no display in a container, not part of
+# this image at all.
+client/
+client_main.py
+assets/
+
+# Deleted local-play entry points don't exist anymore, but excluded
+# defensively in case a local checkout still has them lying around.
+main.py
+main_gui.py
+
+# Docs and tests aren't part of the running server.
+tests/
+EXPLANATION.md
+README.md
+CLAUDE.md
+Server_Design.md
