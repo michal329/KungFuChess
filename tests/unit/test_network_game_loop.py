@@ -2,7 +2,7 @@
 prompts and the incoming-message pump, all against a fake client with
 no real socket or pygame window involved. ``_play``/``run`` themselves
 open a real pygame window and are left untested here -- both are a thin
-composition root over already-tested pieces (see EXPLANATION.md §5.5).
+composition root over already-tested pieces.
 """
 import asyncio
 

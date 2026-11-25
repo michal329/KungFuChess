@@ -1,7 +1,7 @@
 """Owns one ``GameEngine`` + one ``GameState`` per active room. This is
 epic 7's whole point: nothing inside ``kfchess/engine`` had to change
 to support "many simultaneous games" -- ``GameEngine`` already holds no
-per-game state on ``self`` (CLAUDE.md rule 2 / EXPLANATION.md §5.4),
+per-game state on ``self`` (ARCHITECTURE.md rule 2),
 so a server-side manager driving N independent ``(engine, state)``
 pairs is exactly what that design was for.
 

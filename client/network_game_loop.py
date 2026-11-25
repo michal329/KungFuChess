@@ -1,7 +1,7 @@
 """NetworkGameLoop: the composition root for the graphical entry point
 (``client_main.py``) -- the one place that wires ``NetworkGameEngine``,
 ``RemoteGameView``, and the reused ``kfchess.gui``/``kfchess.input``
-pieces together (EXPLANATION.md §5.5). There is no offline/local play
+pieces together. There is no offline/local play
 in this project -- a game only ever exists on a server, so this is the
 *only* graphical composition root.
 
@@ -11,12 +11,11 @@ background task continuously drains incoming messages into a queue;
 the pygame loop drains that queue once per frame. That background task
 must never stop for as long as the connection is open -- a client that
 stops reading can stall its own connection's close (see
-``server/game_manager.py``'s "production gotcha" note /
-EXPLANATION.md's backpressure entry) -- so it keeps running for the
+``server/game_manager.py``'s "production gotcha" note) -- so it keeps running for the
 entire life of ``_play``, cancelled only on the way out.
 
 Login and room selection are plain terminal prompts before the pygame
-window opens (see EXPLANATION.md for why a full in-window lobby was
+window opens (a full in-window lobby was
 deliberately deferred). ``pygame.time.Clock.tick`` is not used for
 frame pacing here -- it blocks synchronously (SDL's delay), which
 would starve the receive task -- instead frame pacing uses

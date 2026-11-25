@@ -6,8 +6,8 @@ dataclass round-trips through ``dataclasses.fields``/``json.dumps`` with
 no custom encoder (see ``protocol.serialization``).
 
 Board squares travel as ``{"row": int, "col": int}`` rather than
-algebraic notation ("e2"): the board size isn't hardcoded (see
-CLAUDE.md's additional design notes), and row/col is exactly what
+algebraic notation ("e2"): the board size isn't hardcoded (``Board``
+takes its dimensions as arguments), and row/col is exactly what
 ``Position`` already is, with no assumption of an 8-wide board or
 letter files.
 

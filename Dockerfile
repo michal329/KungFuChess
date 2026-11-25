@@ -23,9 +23,13 @@ COPY protocol/ ./protocol/
 COPY server/ ./server/
 COPY server_main.py .
 
-# SQLite file lives on a volume (see docker-compose.yml) so user
-# accounts/ratings survive a container restart.
-RUN mkdir -p /data
+# SQLite file lives on a volume (see docker-compose.yml and
+# k8s/kfchess.yaml) so user accounts/ratings survive a container
+# restart. The server runs as an unprivileged user that owns /data.
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin kfchess \
+    && mkdir -p /data \
+    && chown kfchess:kfchess /data
+USER 10001
 
 EXPOSE 8765
 

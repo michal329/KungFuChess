@@ -1,0 +1,97 @@
+# Kung Fu Chess server on Kubernetes.
+#
+# This is the single-process server (Server_Design.md's deployment
+# mode #1) running as one pod. It is deliberately NOT scaled out:
+# every room and game lives in the server process's memory, and user
+# accounts live in one SQLite file. Two replicas would split players
+# across two separate game worlds and two processes writing one SQLite
+# file. Scaling out needs the sharded design in Server_Design.md
+# (mode #2), not just a higher replica count.
+#
+# Deploy:  kubectl apply -f k8s/kfchess.yaml
+# Connect: kubectl port-forward service/kfchess 8765:8765
+#          python client_main.py ws://localhost:8765
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kfchess-data
+  labels:
+    app: kfchess
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kfchess
+  labels:
+    app: kfchess
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: a rolling update briefly runs the old
+  # and new pod together, both writing the same SQLite file.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kfchess
+  template:
+    metadata:
+      labels:
+        app: kfchess
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: server
+          image: kfchess-server:latest
+          # The image is built locally and loaded into the cluster
+          # (kind load docker-image), not pulled from a registry.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: ws
+              containerPort: 8765
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: ws
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: ws
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kfchess-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kfchess
+  labels:
+    app: kfchess
+spec:
+  selector:
+    app: kfchess
+  ports:
+    - name: ws
+      port: 8765
+      targetPort: ws

@@ -14,8 +14,7 @@ wildcard topic. The administrative events the architecture doc also
 wants logged (login, room created, game started, disconnect, reconnect,
 errors) never touch the Bus -- they're sent point-to-point -- so they're
 logged directly at their own call sites instead (``server/auth.py``,
-``server/app.py``, ``server/game_manager.py``, ``server/messaging.py``);
-see EXPLANATION.md's Logging section for the full list.
+``server/app.py``, ``server/game_manager.py``, ``server/messaging.py``).
 """
 from __future__ import annotations
 

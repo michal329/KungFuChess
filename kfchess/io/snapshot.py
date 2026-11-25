@@ -103,7 +103,7 @@ def game_state_from_snapshot(payload: Dict) -> GameState:
     a ``Board`` from a text fixture: both build fresh model objects
     from an *external* source of truth, never from a local click or
     legality decision -- see ``client/remote_game_view.py``, the only
-    intended caller, for why that distinction matters (CLAUDE.md rule 1
+    intended caller, for why that distinction matters (ARCHITECTURE.md rule 1
     is about local mutation authority; this is a client mirroring a
     game it does not own)."""
     board = build_board(payload["board"]["grid"])

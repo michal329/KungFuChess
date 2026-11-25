@@ -1,5 +1,5 @@
 """A minimal Pub/Sub bus: topic -> subscriber callables. Lives in
-``server``, never in ``kfchess`` -- see CLAUDE.md-equivalent guidance
+``server``, never in ``kfchess`` -- see the guidance
 in the architecture doc ("Where does Pub/Sub belong? The Bus belongs
 to the Server layer, not inside the Game Logic").
 

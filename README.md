@@ -1,6 +1,7 @@
 # Kung Fu Chess
 
 [![Tests](https://github.com/michal329/KungFuChess/actions/workflows/tests.yml/badge.svg)](https://github.com/michal329/KungFuChess/actions/workflows/tests.yml)
+[![Kubernetes](https://github.com/michal329/KungFuChess/actions/workflows/k8s.yml/badge.svg)](https://github.com/michal329/KungFuChess/actions/workflows/k8s.yml)
 
 A real-time multiplayer chess game: an event-driven game engine, a
 **WebSocket game server** (login, rooms, ELO matchmaking, SQLite user
@@ -66,6 +67,44 @@ pytest --cov=kfchess --cov-report=term-missing
 
 [Server_Design.md](Server_Design.md) describes how the same architecture
 would scale out to multiple game-server shards.
+
+## Kubernetes
+
+[`k8s/kfchess.yaml`](k8s/kfchess.yaml) runs the server on Kubernetes: a
+Deployment, a Service on port 8765, and a PersistentVolumeClaim for the
+SQLite user database. The container runs as a non-root user, with TCP
+readiness and liveness probes and resource limits.
+
+```bash
+# build the image and load it into a local kind cluster
+docker build -t kfchess-server:latest .
+kind create cluster --name kfchess
+kind load docker-image kfchess-server:latest --name kfchess
+
+# deploy
+kubectl apply -f k8s/kfchess.yaml
+kubectl rollout status deployment/kfchess
+
+# connect a client through a port-forward
+kubectl port-forward service/kfchess 8765:8765
+python client_main.py ws://localhost:8765
+```
+
+**Why one replica, with a `Recreate` strategy.** Every room and game
+lives in the server process's memory, and user accounts live in a single
+SQLite file. Two replicas would split players into two separate game
+worlds, and a rolling update would briefly run two pods writing the same
+SQLite file. So the Deployment runs exactly one pod and replaces it
+instead of rolling it. Scaling out needs the sharded design in
+[Server_Design.md](Server_Design.md) (deployment mode #2), not a higher
+replica count.
+
+**Tested in CI.** The [Kubernetes workflow](.github/workflows/k8s.yml)
+deploys the manifest to a kind cluster on every push, registers a user
+over a real websocket with [`scripts/smoke_test.py`](scripts/smoke_test.py),
+deletes the pod, and logs in again on the replacement pod. The second
+login only succeeds if the account survived on the PersistentVolumeClaim;
+a wrong password must still be rejected.
 
 ## Package layout
 

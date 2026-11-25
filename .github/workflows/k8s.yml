@@ -1,0 +1,79 @@
+name: Kubernetes
+
+# Deploys the server to a throwaway kind cluster and checks it over a
+# real websocket: a user registers, the pod is deleted, and the same
+# user logs in again on the new pod -- which only works if the SQLite
+# file survived on the PersistentVolumeClaim.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install smoke-test dependency
+        run: pip install -r requirements-server.txt
+
+      - name: Build the server image
+        run: docker build -t kfchess-server:latest .
+
+      - name: Create a kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kfchess
+
+      - name: Load the image into the cluster
+        run: kind load docker-image kfchess-server:latest --name kfchess
+
+      - name: Deploy
+        run: |
+          kubectl apply -f k8s/kfchess.yaml
+          kubectl rollout status deployment/kfchess --timeout=120s
+
+      - name: Smoke test, first pod
+        run: |
+          kubectl port-forward service/kfchess 8765:8765 > /tmp/pf1.log 2>&1 &
+          PF_PID=$!
+          for i in $(seq 1 30); do nc -z localhost 8765 && break; sleep 1; done
+          python scripts/smoke_test.py ws://localhost:8765 ci-player s3cret-pass expect-rating
+          kill $PF_PID
+
+      - name: Delete the pod and wait for its replacement
+        run: |
+          OLD_POD=$(kubectl get pod -l app=kfchess -o jsonpath='{.items[0].metadata.name}')
+          kubectl delete pod "$OLD_POD" --wait=true
+          kubectl rollout status deployment/kfchess --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app=kfchess --timeout=120s
+          NEW_POD=$(kubectl get pod -l app=kfchess -o jsonpath='{.items[0].metadata.name}')
+          echo "replaced $OLD_POD with $NEW_POD"
+          test "$OLD_POD" != "$NEW_POD"
+
+      - name: Smoke test, new pod (account must have survived)
+        run: |
+          kubectl port-forward service/kfchess 8765:8765 > /tmp/pf2.log 2>&1 &
+          PF_PID=$!
+          for i in $(seq 1 30); do nc -z localhost 8765 && break; sleep 1; done
+          python scripts/smoke_test.py ws://localhost:8765 ci-player s3cret-pass expect-rating
+          python scripts/smoke_test.py ws://localhost:8765 ci-player wrong-pass expect-error
+          kill $PF_PID
+
+      - name: Show cluster state on failure
+        if: failure()
+        run: |
+          kubectl get all,pvc -o wide
+          kubectl describe pod -l app=kfchess
+          kubectl logs -l app=kfchess --tail=100 || true
+          cat /tmp/pf1.log /tmp/pf2.log 2>/dev/null || true

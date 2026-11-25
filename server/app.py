@@ -1,7 +1,7 @@
 """ServerApp: the server's composition root -- the one place that
 constructs the Bus, ConnectionManager, UserStore/AuthService,
 RoomManager, GameManager, Matchmaker, CommandRouter and
-WebSocketServer and wires them together (see EXPLANATION.md §5.5) --
+WebSocketServer and wires them together --
 everywhere else in ``server/`` depends on interfaces/collaborators
 handed to it from outside, never constructs its own.
 

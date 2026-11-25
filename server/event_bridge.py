@@ -7,7 +7,7 @@ Registered exactly like ``MoveHistory`` (see
 ``kfchess/engine/move_history.py``) via ``GameEngine.add_observer`` --
 it reacts strictly after the engine has already decided and mutated
 the board, same as any other Observer, so it has no legality say (see
-CLAUDE.md rule 8). ``game_id`` is an opaque string correlator; this
+ARCHITECTURE.md rule 8). ``game_id`` is an opaque string correlator; this
 module has no notion of a "room" -- a future Room/Game Manager just
 constructs one bridge per active game and hands it whatever id it
 likes.

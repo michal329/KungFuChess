@@ -25,7 +25,11 @@ this project's architecture (see `ARCHITECTURE.md` rules 1–2).
 `docker-compose.yml` that containerize the existing single-process
 server (`docker compose up --build`, then `python client_main.py
 ws://localhost:8765` from a machine with a display). That's deployment
-mode #1, containerized. The multi-shard design below is the proposed
+mode #1, containerized. The same single process also runs on Kubernetes
+(`k8s/kfchess.yaml`: one replica with a `Recreate` strategy and the
+SQLite file on a PersistentVolumeClaim), deployed and smoke-tested on a
+kind cluster in CI; see the README's Kubernetes section for why it stays
+at one replica. The multi-shard design below is the proposed
 target, not yet implemented in code — a deliberate choice: a small
 thing that runs beats a large distributed system sketched out in code
 that doesn't.

@@ -2,7 +2,7 @@
 ``GameState`` -- the only thing that ever mutates it, and only ever
 from incoming server ``Message``s, never from a local click or
 legality decision. This is the network analogue of ``GameEngine``'s
-board-mutation authority (CLAUDE.md rule 1): a client isn't the game's
+board-mutation authority (ARCHITECTURE.md rule 1): a client isn't the game's
 owner, just a display mirror of a game running on the server (see
 ``kfchess/io/snapshot.py``'s ``game_state_from_snapshot`` docstring for
 the same point made about reconstructing the board itself).
