@@ -8,3 +8,6 @@ __pycache__/
 
 # Local-only notes, not for the repo
 EXPLANATION.md
+
+# Local AI-assistant notes, not for the repo
+CLAUDE.md

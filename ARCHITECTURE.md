@@ -1,4 +1,4 @@
-# Architecture rules for this project
+# Architecture rules
 
 1. `GameEngine` is the ONLY thing that ever mutates a `Board`. `RuleEngine`,
    `CollisionResolver`, and `ClickController` only ever read it.

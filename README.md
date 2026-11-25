@@ -1,5 +1,12 @@
 # Kung Fu Chess
 
+[![Tests](https://github.com/michal329/KungFuChess/actions/workflows/tests.yml/badge.svg)](https://github.com/michal329/KungFuChess/actions/workflows/tests.yml)
+
+A real-time multiplayer chess game: an event-driven game engine, a
+**WebSocket game server** (login, rooms, ELO matchmaking, SQLite user
+store) and a pygame client, containerized with **Docker** and covered by
+**291 automated tests**.
+
 Real-time chess: no turns, pieces move on a per-piece cooldown, and a
 move takes visible travel time -- dodging usually works by moving a
 threatened piece away before an attacker arrives. A piece that's
@@ -23,20 +30,42 @@ pip install -e .
 
 ## Running
 
-```bash
-# text mode: reads a Board:/Commands: fixture from stdin or a file
-python main.py < tests/integration/scripts/01_rook_move_and_capture.kfc
-python main.py path/to/script.kfc
+A game only exists on a server; there is no offline mode.
 
-# graphical mode: standard starting position. Left click to select,
-# then left click a destination to move, or click the same square
-# again to jump in place.
-python main_gui.py
+```bash
+# 1. start the server (ws://localhost:8765, users stored in SQLite)
+python server_main.py
+#    or run it in Docker
+docker compose up --build
+
+# 2. start a client on a machine with a display, once per player.
+#    It asks for a username and whether to create, join or matchmake,
+#    then opens the board. Left click to select, left click a
+#    destination to move, or click the same square again to jump.
+python client_main.py ws://localhost:8765
 
 # tests
 pytest -v
 pytest --cov=kfchess --cov-report=term-missing
 ```
+
+## Server
+
+`server/` is an asyncio WebSocket server:
+
+- **Auth**: login with salted PBKDF2 password hashing (`auth.py`).
+- **Rooms and matchmaking**: create or join a room, or matchmake against
+  an opponent within ±100 ELO (`room_manager.py`, `matchmaking.py`).
+- **ELO rating**: updated when a game ends by an `Observer` that reacts
+  to the game-over event (`rating.py`, `rating_subscriber.py`).
+- **Command routing and broadcasting**: client commands are routed to
+  the right game, and engine events are broadcast to both players
+  (`command_router.py`, `broadcaster.py`, `event_bridge.py`).
+- The server owns the authoritative `GameEngine`; the client only sends
+  commands and renders the events it receives.
+
+[Server_Design.md](Server_Design.md) describes how the same architecture
+would scale out to multiple game-server shards.
 
 ## Package layout
 
@@ -53,8 +82,8 @@ kfchess/
 └── gui/        pygame rendering, sprite/animation state machine
 ```
 
-See [CLAUDE.md](CLAUDE.md) for the architectural rules this layout
-enforces.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the architectural rules this
+layout enforces.
 
 ## Text fixture DSL
 
@@ -77,7 +106,8 @@ fast. There's no separate `jump` command: two consecutive `click <x>
 real click sequence. `print history` prints every completed move so
 far, one line per color (`W: WR(0,0)-(0,3) ...`) -- see "Move history"
 below. See `tests/integration/scripts/` for worked examples and
-`tests/integration/test_scripted_replays.py` for how they're driven.
+`tests/integration/test_scripted_replays.py` for how they're driven
+(through `kfchess/texttests/script_runner.py`).
 
 ## Move history
 
@@ -89,8 +119,8 @@ isn't referenced by them at all. Register one with
 `engine.add_observer(history)` and read it back with
 `history.moves_for(WHITE)` / `history.moves_for(BLACK)`, or render it
 as text with `kfchess/io/history_printer.py`. Both `ScriptRunner` (text
-mode, via `print history`) and `GameLoop` (`.move_history`, printed to
-stdout on quit) wire one up automatically.
+mode, via `print history`) and the client's `NetworkGameLoop` (printed
+to stdout on quit) wire one up automatically.
 
 ## Design provenance
 

@@ -9,8 +9,7 @@ this repository today versus what's proposed for scale.
 
 ## 0. Where we actually are today
 
-The current codebase (`server/`, `protocol/`, `client/` — see
-`EXPLANATION.md` for the full walkthrough) is **one `ServerApp` process**:
+The current codebase (`server/`, `protocol/`, `client/`) is **one `ServerApp` process**:
 one `Bus`, one in-memory `RoomManager`, one `GameManager` holding every
 active room's `GameEngine`/`GameState` in a Python dict, one SQLite file
 via `UserStore`. It's a real, working, tested server (291 tests, a real
@@ -20,8 +19,7 @@ process holding every role. Everything below is the design for mode #2:
 the same layered architecture, physically spread across many processes
 and machines. The `GameEngine` itself — the actual game rules — does not
 change between the two modes; that separation is the entire point of
-this project's architecture (see `CLAUDE.md` rules 1–2 and
-`EXPLANATION.md` §5.4).
+this project's architecture (see `ARCHITECTURE.md` rules 1–2).
 
 **What ships with this document, working today:** a `Dockerfile` +
 `docker-compose.yml` that containerize the existing single-process
@@ -168,7 +166,7 @@ is the reason those two both appear in the diagram:
 The one invariant that never changes across any of this: **the client
 never decides game rules, and neither does any Gateway** — only the
 Game Server Shard's `GameEngine` instance is ever allowed to mutate a
-`Board` (CLAUDE.md rule 1), exactly as in the single-process version.
+`Board` (ARCHITECTURE.md rule 1), exactly as in the single-process version.
 
 ---
 
